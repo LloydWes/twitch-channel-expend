@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Twitch - Expand your followed channels list automatically
 // @namespace    http://tampermonkey.net/
-// @version      0.1
+// @version      0.2
 // @description  Expand your followed channels list automatically and keep expending it as new channels go online
 // @author       Lloyd WESTBURY
 // @match        https://www.twitch.tv/*
@@ -33,33 +33,28 @@
             });
         });
     }
-    let expendUntilOfflineChannelFound = (resolve, fail) => {
-        let expandBtn = document.querySelector(".side-nav-show-more-toggle__button > button");
-        if (!document.querySelectorAll(".side-nav-card__avatar--offline").length && expandBtn) {
-            expandBtn.click();
-            return resolve();
-        } else {
-            return fail();
+    function expendUntilOfflineChannelFound() {
+        let truc = (tr) => {
+            let offlineChannelList = document.querySelectorAll(".side-nav-card__avatar--offline");
+            let moreButton = document.querySelector(".side-nav-show-more-toggle__button > button");
+            if (offlineChannelList.length == 0 && moreButton) {
+                moreButton.click();
+                setTimeout(tr, 200, tr);
+            }
         }
+        setTimeout(truc, 200, truc);
     }
-    let getExpendingPromise = () => {
-        return new Promise((resolve, reject) => {
-            return expendUntilOfflineChannelFound(resolve, reject)
-        })}
-    let launchPromiseChaine = () => {
-        getExpendingPromise().then(() => {
-            setTimeout(launchPromiseChaine, 200);
-        }).catch(()=>{
-            setAutoExpend();
-        });
+    function launchInitialExpendAndListenForChanges() {
+        expendUntilOfflineChannelFound();
+        launchListenerObserver();
     }
 
-    function setAutoExpend() {
+    function launchListenerObserver() {
         const sideBar = document.getElementsByClassName("side-bar-contents")[0];
-        let followedSection = sideBar.getElementsByClassName("side-nav-section")[0];
 
         const config = { attributes: false, childList: true, subtree: true };
         const callback = (mutationList, obs) => {
+            let followedSection = sideBar.getElementsByClassName("side-nav-section")[0];
             let relevantMutation = false;
             for (const mutation of mutationList) {
                 if (mutation.type === "childList") {
@@ -70,8 +65,7 @@
             if (relevantMutation) {
                 let fv = followedSection.querySelectorAll('div[class*=offline]');
                 if (fv.length === 0) {
-                    obs.disconnect();
-                    launchPromiseChaine();
+                    expendUntilOfflineChannelFound();
                 }
             }
         };
@@ -82,6 +76,6 @@
 
     // Initialize
     waitForElement(".side-nav-show-more-toggle__button").then(() => {
-        setTimeout(launchPromiseChaine, 1000);
+        setTimeout(launchInitialExpendAndListenForChanges, 500);
     });
 }());
